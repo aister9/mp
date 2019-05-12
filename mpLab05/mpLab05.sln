@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28010.2036
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mpLab05", "mpLab05\mpLab05.vcxproj", "{BAADCDE3-3FD9-4B3C-BD98-B6836FF49114}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BAADCDE3-3FD9-4B3C-BD98-B6836FF49114}.Debug|x64.ActiveCfg = Debug|x64
+		{BAADCDE3-3FD9-4B3C-BD98-B6836FF49114}.Debug|x64.Build.0 = Debug|x64
+		{BAADCDE3-3FD9-4B3C-BD98-B6836FF49114}.Release|x64.ActiveCfg = Release|x64
+		{BAADCDE3-3FD9-4B3C-BD98-B6836FF49114}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5BA1C1C1-7936-4E3B-A248-C767C6875F0C}
+	EndGlobalSection
+EndGlobal
