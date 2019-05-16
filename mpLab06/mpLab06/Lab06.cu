@@ -150,7 +150,7 @@ float* matrixGen(int m, int n) {
 #pragma omp parallel for
 	for (int i = 0; i < m; i++) {
 		for (int j = 0; j < n; j++) {
-			newMatrix[i * n + j] = rand() % 100;
+			newMatrix[i * n + j] = rand() /RAND_MAX * 10;
 		}
 	}
 	return newMatrix;
