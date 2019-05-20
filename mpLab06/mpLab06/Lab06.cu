@@ -14,9 +14,9 @@ void __syncthreads();
 
 #define M_SIZE 2048
 #define N_SIZE 2048
-#define K_SIZE 1024
+#define K_SIZE 2048
 
-DS_timer *timer = new DS_timer(6);
+DS_timer *timer = new DS_timer(7);
 
 float* matrixGen(int m, int n);
 float* matrixMultiCPU(float *matrixA, float *matrixB, int row_size, int k_size, int col_size);
@@ -34,13 +34,36 @@ __global__ void matMul_kernel(float *_A, float *_B, float *_C, int row_size, int
 	}
 	else for (int k = 0; k < k_size; k++) _C[index] += _A[row*k_size + k] * _B[k * col_size + col];
 }
+
+__global__ void matMul_kernel_previous_lab(float *_A, float *_B, float *_C, int row_size, int k_size, int col_size) {
+	int row = threadIdx.y + blockDim.y * blockIdx.y;
+	int col = threadIdx.x + blockDim.x * blockIdx.x;
+	int index = row * col_size + col;
+
+	__shared__ float sA[4][K_SIZE]; //8kb(2048*4) * 4 = 32
+	__shared__ float sB[K_SIZE][2]; //8kb * 2 = 16
+
+	for (int k = 0; k < K_SIZE; k++) {
+		sA[threadIdx.y][k] = _A[row*K_SIZE + k];
+		sB[k][threadIdx.x] = _B[col + col_size * k];
+	}
+
+	__syncthreads();
+
+	_C[index] = 0;
+	if (row >= row_size || col >= col_size) {
+
+	}
+	else for (int k = 0; k < k_size; k++) _C[index] += sA[threadIdx.y][k] * sB[k][threadIdx.x];
+}
+
 __global__ void matMul_kernel_shared(float *_A, float *_B, float *_C, int row_size, int k_size, int col_size) {
 	int row = threadIdx.y + blockDim.y * blockIdx.y;
 	int col = threadIdx.x + blockDim.x * blockIdx.x;
 	int index = row * col_size + col;
 
-	__shared__ float sA[16][16]; //2kb(512*4) * 16 = 32
-	__shared__ float sB[16][16]; //2kb * 8 = 16
+	__shared__ float sA[16][16]; 
+	__shared__ float sB[16][16]; 
 
 
 	int localRow = threadIdx.y;
@@ -77,8 +100,8 @@ __global__ void matMul_kernel_shared_ver2(float *_A, float *_B, float *_C, int r
 	int col = threadIdx.x + blockDim.x * blockIdx.x;
 	int index = row * col_size + col;
 
-	__shared__ float sA[16][16]; //2kb(512*4) * 16 = 32
-	__shared__ float sB[16][16]; //2kb * 8 = 16
+	__shared__ float sA[16][16]; 
+	__shared__ float sB[16][16]; 
 
 
 	int localRow = threadIdx.y;
@@ -117,10 +140,11 @@ int main()
 	timer->initTimers();
 	timer->setTimerName(0, "host calc matrix ");
 	timer->setTimerName(1, "gpu calc matrix ");
-	timer->setTimerName(2, "gpu calc matrix (shared memory)");
-	timer->setTimerName(3, "gpu calc matrix (shared memory ver2)");
-	timer->setTimerName(4, "memcpy host to device ");
-	timer->setTimerName(5, "memcpy device to host ");
+	timer->setTimerName(2, "gpu calc matrix (shared memory previous model)");
+	timer->setTimerName(3, "gpu calc matrix (shared memory)");
+	timer->setTimerName(4, "gpu calc matrix (shared memory ver2)");
+	timer->setTimerName(5, "memcpy host to device ");
+	timer->setTimerName(6, "memcpy device to host ");
 	float *matrixA = matrixGen(M_SIZE, K_SIZE);
 	float *matrixB = matrixGen(K_SIZE, N_SIZE);
 	std::cout << "gen" << std::endl;
@@ -192,11 +216,11 @@ float* matrixMultiGPU(float *matrixA, float *matrixB, int row_size, int k_size, 
 	cudaMalloc(&dB, sizeof(float)*col_size*k_size);
 	cudaMalloc(&dC, sizeof(float)*row_size*col_size);
 
-	timer->onTimer(4);
+	timer->onTimer(5);
 	//cpy matrix data h to d
 	cudaMemcpy(dA, matrixA, sizeof(float)*row_size*k_size, cudaMemcpyHostToDevice);
 	cudaMemcpy(dB, matrixB, sizeof(float)*k_size*col_size, cudaMemcpyHostToDevice);
-	timer->offTimer(4);
+	timer->offTimer(5);
 
 	dim3 blockDim(16, 16); //256 threads per block
 	dim3 gridDim(ceil((float)col_size / 16.0), ceil((float)row_size / 16.0));
@@ -206,19 +230,27 @@ float* matrixMultiGPU(float *matrixA, float *matrixB, int row_size, int k_size, 
 	cudaThreadSynchronize();
 	timer->offTimer(1);
 
+	dim3 blockDim2(2, 4); //8 threads per block
+	dim3 gridDim2(ceil((float)col_size / 2.0), ceil((float)row_size / 4.0));
+
 	timer->onTimer(2);
-	matMul_kernel_shared << <gridDim, blockDim >> > (dA, dB, dC, row_size, k_size, col_size);
+	matMul_kernel_previous_lab << <gridDim2, blockDim2 >> > (dA, dB, dC, row_size, k_size, col_size);
 	cudaThreadSynchronize();
 	timer->offTimer(2);
 
 	timer->onTimer(3);
-	matMul_kernel_shared_ver2 << <gridDim, blockDim >> > (dA, dB, dC, row_size, k_size, col_size);
+	matMul_kernel_shared << <gridDim, blockDim >> > (dA, dB, dC, row_size, k_size, col_size);
 	cudaThreadSynchronize();
 	timer->offTimer(3);
 
-	timer->onTimer(5);
+	timer->onTimer(4);
+	matMul_kernel_shared_ver2 << <gridDim, blockDim >> > (dA, dB, dC, row_size, k_size, col_size);
+	cudaThreadSynchronize();
+	timer->offTimer(4);
+
+	timer->onTimer(6);
 	cudaMemcpy(newMatrix, dC, sizeof(float)*row_size*col_size, cudaMemcpyDeviceToHost);
-	timer->offTimer(5);
+	timer->offTimer(6);
 
 	cudaFree(&dA); cudaFree(&dB); cudaFree(&dC);
 

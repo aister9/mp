@@ -38,7 +38,7 @@ __global__ void matMul_kernel_shared(float *_A, float *_B, float *_C, int row_si
 	int row = threadIdx.y + blockDim.y * blockIdx.y;
 	int col = threadIdx.x + blockDim.x * blockIdx.x;
 	int index = row * col_size + col;
-
+	
 	__shared__ float sA[16][K_SIZE]; //2kb(512*4) * 16 = 32
 	__shared__ float sB[K_SIZE][8]; //2kb * 8 = 16
 
@@ -148,12 +148,12 @@ float* matrixMultiGPU(float *matrixA, float *matrixB, int row_size, int k_size, 
 	matMul_kernel << <gridDim, blockDim >> > (dA, dB, dC, row_size, k_size, col_size);
 	cudaThreadSynchronize();
 	timer->offTimer(1);
-
+	
 	timer->onTimer(2);
 	matMul_kernel_shared << <gridDim, blockDim >> > (dA, dB, dC, row_size, k_size, col_size);
 	cudaThreadSynchronize();
 	timer->offTimer(2);
-
+	
 	timer->onTimer(4);
 	cudaMemcpy(newMatrix, dC, sizeof(float)*row_size*col_size, cudaMemcpyDeviceToHost);
 	timer->offTimer(4);
