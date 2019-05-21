@@ -10,7 +10,7 @@
 #define NUM_T_IN_B 1024
 #define ARRAY_SIZE NUM_T_IN_B*NUM_BLOCK
 
-#define NUM_STREAMS 2
+#define NUM_STREAMS 4
 
 __global__ void myKernel(int *_in, int *_out) {
 	int tID = blockDim.x * blockIdx.x + threadIdx.x;
@@ -61,12 +61,22 @@ void main() {
 	timer.onTimer(4);
 	LOOP_I(NUM_STREAMS) {
 		int offset = chunkSize * i;
+		cudaEvent_t start, stop;
+		cudaEventCreate(&start); cudaEventCreate(&stop);
 
+		cudaEventRecord(start);
 		cudaMemcpyAsync(dIn + offset, in + offset, sizeof(int)*chunkSize, cudaMemcpyHostToDevice, stream[i]);
-
 		myKernel << <NUM_BLOCK / NUM_STREAMS, NUM_T_IN_B, 0, stream[i] >> > (dIn + offset, dOut + offset);
-
 		cudaMemcpyAsync(out2 + offset, dOut + offset, sizeof(int)*chunkSize, cudaMemcpyDeviceToHost, stream[i]);
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+
+		float time;
+		cudaEventElapsedTime(&time, start, stop);
+
+		printf("Stream[%d] : %lf ms\n", i, time);
+
+		cudaEventDestroy(start); cudaEventDestroy(stop);
 	}
 	cudaDeviceSynchronize();
 	timer.offTimer(4);
